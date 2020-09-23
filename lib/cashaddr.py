@@ -84,6 +84,7 @@ def _pack_addr_data(kind, addr_hash):
         encoded_size |= 0x04
     encoded_size |= (len(addr_hash) - 20 * offset) // (4 * offset)
 
+    
     # invalid size?
     if ((len(addr_hash) - 20 * offset) % (4 * offset) != 0
             or not 0 <= encoded_size <= 7):
@@ -118,7 +119,7 @@ def _decode_payload(addr):
         raise ValueError('address prefix is missing: {}'.format(addr))
     if not all(33 <= ord(x) <= 126 for x in prefix):
         raise ValueError('invalid address prefix: {}'.format(prefix))
-    if not (8 <= len(payload) <= 124):
+    if not (8 <= len(payload) <= 256):
         raise ValueError('address payload has invalid length: {}'
                          .format(len(addr)))
     try:
@@ -143,7 +144,7 @@ def _decode_payload(addr):
 PUBKEY_TYPE = 0
 SCRIPT_TYPE = 1
 
-def decode(address):
+def decode(address,rpa_paycode = False):
     '''Given a cashaddr address, return a triple
 
           (prefix, kind, hash)
@@ -166,10 +167,11 @@ def decode(address):
     version = decoded[0]
     addr_hash = bytes(decoded[1:])
     size = (version & 0x03) * 4 + 20
+    
     # Double the size, if the 3rd bit is on.
     if version & 0x04:
         size <<= 1
-    if size != len(addr_hash):
+    if size != len(addr_hash) and not rpa_paycode:
         raise ValueError('address hash has length {} but expected {}'
                          .format(len(addr_hash), size))
 

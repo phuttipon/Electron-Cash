@@ -36,6 +36,7 @@ from decimal import Decimal as PyDecimal  # Qt 5.12 also exports Decimal
 from functools import wraps
 
 from . import bitcoin
+from . import rpa_paycode
 from . import util
 from .address import Address, AddressError
 from .bitcoin import hash_160, COIN, TYPE_ADDRESS
@@ -510,7 +511,7 @@ class Commands:
         return bitcoin.verify_message(address, sig, message)
 
     def _mktx(self, outputs, fee=None, change_addr=None, domain=None, nocheck=False,
-              unsigned=False, password=None, locktime=None, op_return=None, op_return_raw=None):
+              unsigned=False, password=None, locktime=None, op_return=None, op_return_raw=None, addtransaction=False):
         if op_return and op_return_raw:
             raise ValueError('Both op_return and op_return_raw cannot be specified together!')
         self.nocheck = nocheck
@@ -540,23 +541,42 @@ class Commands:
         if not unsigned:
             run_hook('sign_tx', self.wallet, tx)
             self.wallet.sign_transaction(tx, password)
+            if addtransaction:
+                self.wallet.add_transaction(tx.txid(), tx)
+                self.wallet.add_tx_to_history(tx.txid())
+                self.wallet.save_transactions()
         return tx
+
+    @command('')
+    def rpa_generate_paycode(self):
+        return rpa_paycode.rpa_generate_paycode(self.wallet)
+
+    @command('wp')
+    def rpa_generate_transaction_from_paycode(self, amount,  paycode=None, fee= None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, password=None, locktime=None,
+              op_return=None, op_return_raw=None):
+        # WARNING: Amount is in full Bitcoin Cash units
+        return rpa_paycode.rpa_generate_transaction_from_paycode(self.wallet, self.config, amount,paycode)
+            
+    @command('wp')
+    def rpa_extract_private_key_from_transaction(self,raw_tx, password=None):     
+        return rpa_paycode.rpa_extract_private_key_from_transaction(self.wallet,raw_tx,password)
+        
 
     @command('wp')
     def payto(self, destination, amount, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, password=None, locktime=None,
-              op_return=None, op_return_raw=None):
+              op_return=None, op_return_raw=None, addtransaction=False):
         """Create a transaction. """
         tx_fee = satoshis(fee)
         domain = from_addr.split(',') if from_addr else None
-        tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain, nocheck, unsigned, password, locktime, op_return, op_return_raw)
+        tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain, nocheck, unsigned, password, locktime, op_return, op_return_raw, addtransaction=addtransaction)
         return tx.as_dict()
 
     @command('wp')
-    def paytomany(self, outputs, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, password=None, locktime=None):
+    def paytomany(self, outputs, fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, password=None, locktime=None, addtransaction=False):
         """Create a multi-output transaction. """
         tx_fee = satoshis(fee)
         domain = from_addr.split(',') if from_addr else None
-        tx = self._mktx(outputs, tx_fee, change_addr, domain, nocheck, unsigned, password, locktime)
+        tx = self._mktx(outputs, tx_fee, change_addr, domain, nocheck, unsigned, password, locktime, addtransaction=addtransaction)
         return tx.as_dict()
 
     @command('w')
@@ -844,6 +864,7 @@ param_descriptions = {
 }
 
 command_options = {
+    'addtransaction': (None, 'Whether transaction is to be used for broadcasting afterwards. Adds transaction to the wallet'),
     'balance':     ("-b", "Show the balances of listed addresses"),
     'change':      (None, "Show only change addresses"),
     'change_addr': ("-c", "Change address. Default is a spare address, or the source address if it's not in the wallet"),
@@ -871,6 +892,7 @@ command_options = {
     'paid':        (None, "Show only paid requests."),
     'passphrase':  (None, "Seed extension"),
     'password':    ("-W", "Password"),
+    'paycode':     (None, 'RPA Resuable Payment Address Paycode'),
     'payment_url': (None, 'Optional URL where you would like users to POST the BIP70 Payment message'),
     'pending':     (None, "Show only pending requests."),
     'privkey':     (None, "Private key. Set to '?' to get a prompt."),
@@ -986,6 +1008,7 @@ def add_global_options(parser):
     group.add_argument("-wp", "--walletpassword", dest="wallet_password", default=None, help="Supply wallet password")
     group.add_argument("--testnet", action="store_true", dest="testnet", default=False, help="Use Testnet")
     group.add_argument("--testnet4", action="store_true", dest="testnet4", default=False, help="Use Testnet4")
+    group.add_argument("--scalenet", action="store_true", dest="scalenet", default=False, help="Use Scalenet")
 
 def get_parser():
     # create main parser
