@@ -197,7 +197,7 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
 
     # While loop for grinding.  Keep grinding until txid prefix matches paycode scanpubkey prefix.
     while not tx_matches_paycode_prefix:
-        
+
         # Construct the transaction, initially with a dummy destination
         rpa_dummy_address = wallet.dummy_address().to_string(Address.FMT_CASHADDR)
         unsigned = True
@@ -238,8 +238,8 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
         tx.BIP_LI01_sort()
 
         # Now we need to sign the transaction after the outputs are known
-        wallet.sign_transaction(tx, password, ndata=ndata) 
-        
+        wallet.sign_transaction(tx, password, ndata=ndata)
+
         # Generate the raw transaction
         raw_tx_string = tx.as_dict()["hex"]
 
