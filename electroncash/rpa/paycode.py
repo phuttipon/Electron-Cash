@@ -197,7 +197,7 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
 
     # While loop for grinding.  Keep grinding until txid prefix matches paycode scanpubkey prefix.
     while not tx_matches_paycode_prefix:
-
+        
         # Construct the transaction, initially with a dummy destination
         rpa_dummy_address = wallet.dummy_address().to_string(Address.FMT_CASHADDR)
         unsigned = True
@@ -238,20 +238,21 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
         tx.BIP_LI01_sort()
 
         # Now we need to sign the transaction after the outputs are known
-        wallet.sign_transaction(tx, password, ndata=ndata)
-
+        wallet.sign_transaction(tx, password, ndata=ndata) 
+        
         # Generate the raw transaction
         raw_tx_string = tx.as_dict()["hex"]
 
-        # Get the TxId for this raw Tx.
-        double_hash_tx = bytearray(sha256(sha256(bytes.fromhex(raw_tx_string))))
-        double_hash_tx.reverse()
-        txid = double_hash_tx.hex()
+        # Get the 'txinid' (double hash of serialized input) for this raw Tx.
+        txin= tx._inputs[0]
+        txin_script = Transaction.input_script(txin,False,sign_schnorr = True)
+        serialized_signed_input = Transaction.serialize_input(txin,txin_script)
+        double_hash_txin = bytearray(sha256(sha256(bytes.fromhex(serialized_signed_input))))
+        txinid = double_hash_tx.hex()
 
         # Check if we got a successful match.  If so, exit.
-        if txid[0:prefix_chars].upper() == paycode_field_scan_pubkey[2:prefix_chars + 2].upper():
-            print_msg("Grinding successful after ", grind_nonce, " iterations.")
-            print_msg("Transaction Id: ", txid)
+        if txinid[0:prefix_chars].upper() == paycode_field_scan_pubkey[2:prefix_chars + 2].upper():
+            print_msg("Grinding successful after ", grind_nonce, " iterations.") 
             print_msg("prefix is ", txid[0:prefix_chars].upper())
             final_raw_tx = raw_tx_string
             tx_matches_paycode_prefix = True  # <<-- exit
