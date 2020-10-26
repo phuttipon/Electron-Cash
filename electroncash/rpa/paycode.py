@@ -167,7 +167,7 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
 
     # Parse paycode
     paycode_field_version = paycode_hex[0:2]
-    paycode_field_prefix_size = paycode_hex[2:4]
+    paycode_field_prefix_size = paycode_hex[2:4].upper()
     paycode_field_scan_pubkey = paycode_hex[4:70]
     paycode_field_spend_pubkey = paycode_hex[70:136]
     paycode_field_expiry = paycode_hex[136:144]
@@ -193,7 +193,7 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
     else:
         raise ValueError("Invalid prefix size. Must be 4,8,12, or 16 bits.")
 
-    print_msg("Attempting to grind a matching prefix.  This may take a few minutes.  Please be patient.")
+    #print_msg("Attempting to grind a matching prefix.  This may take a few minutes.  Please be patient.")
 
     # While loop for grinding.  Keep grinding until txid prefix matches paycode scanpubkey prefix.
     while not tx_matches_paycode_prefix:
@@ -244,16 +244,16 @@ def generate_transaction_from_paycode(wallet, config, amount, rpa_paycode=None, 
         raw_tx_string = tx.as_dict()["hex"]
 
         # Get the 'txinid' (double hash of serialized input) for this raw Tx.
-        txin= tx._inputs[0]
-        txin_script = Transaction.input_script(txin,False,sign_schnorr = True)
-        serialized_signed_input = Transaction.serialize_input(txin,txin_script)
-        double_hash_txin = bytearray(sha256(sha256(bytes.fromhex(serialized_signed_input))))
-        txinid = double_hash_tx.hex()
+        txin = tx._inputs[0]
+        txin_script = Transaction.input_script(txin, False, sign_schnorr=True)
+        serialized_signed_input = Transaction.serialize_input(txin, txin_script)
+        double_hash_txin = sha256(sha256(bytes.fromhex(serialized_signed_input)))
+        txinid = double_hash_txin.hex()
 
         # Check if we got a successful match.  If so, exit.
         if txinid[0:prefix_chars].upper() == paycode_field_scan_pubkey[2:prefix_chars + 2].upper():
-            print_msg("Grinding successful after ", grind_nonce, " iterations.") 
-            print_msg("prefix is ", txid[0:prefix_chars].upper())
+            #print_msg("Grinding successful after ", grind_nonce, " iterations.")
+            #print_msg("prefix is ", txinid[0:prefix_chars].upper())
             final_raw_tx = raw_tx_string
             tx_matches_paycode_prefix = True  # <<-- exit
 
